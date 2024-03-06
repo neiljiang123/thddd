@@ -35,4 +35,27 @@ PRIMARY_CUSTID_RANK=1 AND PRIMARY_HHID_RANK=1 --using one-to-one mapping for 'be
 AND CURRENT_SEGMENTATION='PRO'
 ;
  
- 
+
+
+
+
+* No Sales Segementation
+WITH NoSalesSegmentation AS (
+    SELECT
+        CASE 
+            WHEN LY_SEGMENTATION = 'CONSUMER' OR LLY_SEGMENTATION = 'CONSUMER' THEN 'CONSUMER'
+            WHEN LY_SEGMENTATION = 'PRO' OR LLY_SEGMENTATION = 'PRO' THEN 'PRO'
+            ELSE 'OTHER'
+        END AS PreviousSegmentation,
+        COUNT(*) AS Count
+    FROM `pr-edw-views-thd.SLS_ANALYTICS.CUST_FACTS` facts
+    WHERE CURRENT_SEGMENTATION = 'NO SALES'
+    GROUP BY PreviousSegmentation
+)
+
+SELECT
+    PreviousSegmentation,
+    Count,
+    ROUND((Count * 100.0) / (SELECT SUM(Count) FROM NoSalesSegmentation), 2) AS Percentage
+FROM NoSalesSegmentation
+
