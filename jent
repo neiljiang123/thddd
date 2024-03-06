@@ -1,0 +1,38 @@
+*
+Tables
+ 
+`analytics-views-thd.CLEANROOM_OUTBOUND.DNA_HH` Customer features including demographics & household data
+`pr-edw-views-thd.SLS_ANALYTICS.CUST_FACTS`: Customer Facts table; business, pro/con, trade, sales, and other segmentation features
+`pr-edw-views-thd.SLS_ANALYTICS.CUST_HH_MAP`: customer id to household id mapping table
+`analytics-mkt-preproom.Master.EDW_PRODUCT_REVIEW_DETAIL`: product reviews
+`pr-edw-views-thd.SHARED.OMS_SKU_HIER`: sku information
+`analytics-views-thd.CUSTOMER.EMAIL_HH_MAP`: email hash to household id (for use with product reviews)
+*/
+ 
+-- example query joining product reviews with SKU details
+SELECT
+TITLE, REVIEWTEXT, SKU_DESC, DEPT_NM
+FROM `analytics-mkt-preproom.Master.EDW_PRODUCT_REVIEW_DETAIL`  rev
+JOIN `pr-edw-views-thd.SHARED.OMS_SKU_HIER` sku
+ON rev.product_id = CAST(sku.OMS_ID AS STRING)
+LIMIT 10;
+ 
+-- more complex query joining product reviews to SKU information and customer information through multiple mappings
+-- Answers question: how many Pro product reviews do we have?
+SELECT
+COUNT(DISTINCT CUST_HH_ID) AS CUST_HH_COUNT
+FROM `analytics-mkt-preproom.Master.EDW_PRODUCT_REVIEW_DETAIL`  rev
+LEFT JOIN `pr-edw-views-thd.SHARED.OMS_SKU_HIER` sku
+ON rev.product_id = CAST(sku.OMS_ID AS STRING)
+JOIN `analytics-views-thd.CUSTOMER.EMAIL_HH_MAP` email
+ON email.EMAIL_HASH=rev.EMAIL_HASH
+LEFT JOIN `pr-edw-views-thd.SLS_ANALYTICS.CUST_HH_MAP` map --using one-to-one mapping for 'best' CUST_ID
+ON email.HH_ID=map.PRO_CUST_MATCH_HH_ID
+JOIN `pr-edw-views-thd.SLS_ANALYTICS.CUST_FACTS` facts
+ON CASE WHEN CAST(map.CUST_ID AS STRING) IS NULL THEN email.HH_ID ELSE CAST(map.CUST_ID AS STRING) END = facts.CUST_HH_ID
+WHERE
+PRIMARY_CUSTID_RANK=1 AND PRIMARY_HHID_RANK=1 --using one-to-one mapping for 'best' CUST_ID
+AND CURRENT_SEGMENTATION='PRO'
+;
+ 
+ 
